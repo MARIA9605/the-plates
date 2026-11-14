@@ -22,7 +22,7 @@
       <div
         class="availability"
         [class.loading]="loadingMenu"
-        [class.sold]="!loadingMenu && remaining === 0"
+        [class.sold]="!loadingMenu && (!customerDay?.ordering_open || remaining === 0)"
       >
         {{ loadingMenu ? 'Checking availability…' : availabilityText }}
       </div>
@@ -30,7 +30,7 @@
 
     @if (menuError) {
       <div class="notice sold-out" role="alert">{{ menuError }}</div>
-    } @else if (!loadingMenu && !orderingAvailable) {
+    } @else if (!loadingMenu && menuItems.length > 0 && !orderingAvailable) {
       <div class="notice sold-out">{{ closedMessage }}</div>
     }
 
@@ -268,16 +268,15 @@
           @if (adminDay) {
             <div class="capacity-card">
               <div class="stat">
-                <strong>{{ adminDay.capacity }}</strong
-                ><span>Daily capacity</span>
+                <strong>{{ adminDay.capacity }}</strong><span>Daily capacity</span>
               </div>
               <div class="stat">
-                <strong>{{ adminDay.booked_meals }}</strong
-                ><span>Plates booked</span>
+                <strong>{{ adminDay.booked_meals }}</strong><span>Plates booked</span>
               </div>
               <div class="stat">
-                <strong>{{ Math.max(0, adminDay.capacity - adminDay.booked_meals) }}</strong
-                ><span>Plates remaining</span>
+                <strong>{{ Math.max(0, adminDay.capacity - adminDay.booked_meals) }}</strong><span
+                  >Plates remaining</span
+                >
               </div>
             </div>
           }

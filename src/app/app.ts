@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -106,7 +106,7 @@ export class App implements OnInit {
   loginError = '';
   loginBusy = false;
 
-  constructor() {
+  constructor(private readonly changeDetector: ChangeDetectorRef) {
     this.adminDate = this.serviceDateOptions[0].value;
     this.ordersDate = this.serviceDateOptions[0].value;
   }
@@ -140,6 +140,9 @@ export class App implements OnInit {
   }
 
   get availabilityText(): string {
+    if (!this.customerDay) return 'Not yet open';
+    if (!this.customerDay.ordering_open) return 'Ordering closed';
+    if (this.menuItems.length === 0) return 'Menu not published';
     return this.remaining === 1 ? '1 plate available' : `${this.remaining} plates available`;
   }
 
@@ -187,6 +190,7 @@ export class App implements OnInit {
       this.menuItems = [];
     } finally {
       this.loadingMenu = false;
+      this.changeDetector.markForCheck();
     }
   }
 
@@ -270,6 +274,7 @@ export class App implements OnInit {
       if (!DEMO) await this.loadCustomer(this.customerDate);
     } finally {
       this.placingOrder = false;
+      this.changeDetector.markForCheck();
     }
   }
 
@@ -287,6 +292,7 @@ export class App implements OnInit {
     const { data, error } = await client.auth.getSession();
     if (error) {
       this.loginError = error.message;
+      this.changeDetector.markForCheck();
       return;
     }
     if (data.session) await this.showAdminDashboard();
@@ -320,12 +326,14 @@ export class App implements OnInit {
       this.loginError = 'Incorrect username or password.';
     } finally {
       this.loginBusy = false;
+      this.changeDetector.markForCheck();
     }
   }
 
   async showAdminDashboard(): Promise<void> {
     this.adminView = true;
     this.adminPreview = false;
+    this.changeDetector.markForCheck();
     await Promise.all([this.loadAdminDay(this.adminDate), this.loadOrders()]);
   }
 
@@ -360,6 +368,7 @@ export class App implements OnInit {
       console.error(error);
       this.adminError = 'Could not load this date. Please try again.';
     }
+    this.changeDetector.markForCheck();
   }
 
   async saveCapacity(): Promise<void> {
@@ -389,6 +398,7 @@ export class App implements OnInit {
       this.adminError = error instanceof Error ? error.message : 'Could not save date settings.';
     } finally {
       this.savingCapacity = false;
+      this.changeDetector.markForCheck();
     }
   }
 
@@ -414,6 +424,7 @@ export class App implements OnInit {
       console.error(error);
       this.adminError = error instanceof Error ? error.message : 'Could not add the menu item.';
     }
+    this.changeDetector.markForCheck();
   }
 
   async saveMenuItem(item: MenuItem): Promise<void> {
@@ -439,6 +450,7 @@ export class App implements OnInit {
       this.adminError = error instanceof Error ? error.message : 'Could not save the menu item.';
     } finally {
       this.savingItemId = '';
+      this.changeDetector.markForCheck();
     }
   }
 
@@ -458,9 +470,11 @@ export class App implements OnInit {
     if (error) {
       console.error(error);
       this.adminError = error.message;
+      this.changeDetector.markForCheck();
       return;
     }
     this.orders = data ?? [];
+    this.changeDetector.markForCheck();
   }
 
   async updatePayment(order: Order, event: Event): Promise<void> {
@@ -477,6 +491,7 @@ export class App implements OnInit {
     if (error) {
       console.error(error);
       this.adminError = error.message;
+      this.changeDetector.markForCheck();
       return;
     }
     await this.loadOrders();
@@ -494,6 +509,7 @@ export class App implements OnInit {
     if (error) {
       console.error(error);
       this.adminError = error.message;
+      this.changeDetector.markForCheck();
       return;
     }
     await this.loadOrders();
@@ -514,6 +530,7 @@ export class App implements OnInit {
     if (error) {
       console.error(error);
       this.adminError = error.message;
+      this.changeDetector.markForCheck();
       return;
     }
     const headers = [
@@ -562,11 +579,13 @@ export class App implements OnInit {
       const { error } = await client.auth.signOut();
       if (error) {
         this.adminError = error.message;
+        this.changeDetector.markForCheck();
         return;
       }
     }
     this.adminView = false;
     this.adminPreview = false;
+    this.changeDetector.markForCheck();
   }
 
   addServiceDate(): void {
