@@ -1,1 +1,38 @@
-/* You can add global styles to this file, and also import other style files */
+@use './app/app';
+
+:root {
+  --ink: #24322a;
+  --cream: #fffaf1;
+  --paper: #fffdf8;
+  --orange: #e46032;
+  --sage: #dce8d7;
+  --line: #e8e1d5;
+  --muted: #6d746c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--cream);
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}

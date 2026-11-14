@@ -1,1 +1,435 @@
-hi Maria!
+<header class="site-header">
+  <a class="brand" href="#top">The <i>Plates</i></a>
+  <button class="link-button" type="button" (click)="openAdmin()">Admin sign in</button>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <p class="eyebrow">Kakkanad home kitchen</p>
+    <h1>Comfort food,<br /><em>made for today.</em></h1>
+    <p class="hero-copy">Freshly prepared plates, made in small batches and delivered with care.</p>
+    <div class="service-note">
+      Serving Tuesday, Wednesday &amp; Thursday · menus open every Monday
+    </div>
+  </section>
+
+  <section class="order-shell" aria-labelledby="menu-title">
+    <div class="order-topline">
+      <div>
+        <p class="eyebrow">{{ loadingMenu ? 'Loading menu' : currentMenuDateLabel }}</p>
+        <h2 id="menu-title">Today’s plates</h2>
+      </div>
+      <div
+        class="availability"
+        [class.loading]="loadingMenu"
+        [class.sold]="!loadingMenu && remaining === 0"
+      >
+        {{ loadingMenu ? 'Checking availability…' : availabilityText }}
+      </div>
+    </div>
+
+    @if (menuError) {
+      <div class="notice sold-out" role="alert">{{ menuError }}</div>
+    } @else if (!loadingMenu && !orderingAvailable) {
+      <div class="notice sold-out">{{ closedMessage }}</div>
+    }
+
+    <div class="menu-list">
+      @if (loadingMenu) {
+        <div class="empty-state">Loading today’s menu…</div>
+      } @else if (menuItems.length === 0) {
+        <div class="empty-state">No menu has been published for this date yet.</div>
+      } @else {
+        @for (item of menuItems; track item.id) {
+          <article class="menu-item">
+            <div class="meal-art">✦</div>
+            <div class="meal-main">
+              <h3>{{ item.name }}</h3>
+              <p>{{ item.description || 'Fresh from our kitchen' }}</p>
+              <strong>{{ money(item.price) }}</strong>
+            </div>
+            <div class="quantity-control">
+              <button
+                type="button"
+                aria-label="Remove one"
+                [disabled]="!quantities[item.id]"
+                (click)="adjustQuantity(item.id, -1)"
+              >
+                −
+              </button>
+              <output>{{ quantities[item.id] ?? 0 }}</output>
+              <button
+                type="button"
+                aria-label="Add one"
+                [disabled]="!orderingAvailable || totalSelected >= remaining"
+                (click)="adjustQuantity(item.id, 1)"
+              >
+                +
+              </button>
+            </div>
+          </article>
+        }
+      }
+    </div>
+
+    @if (totalSelected > 0 && orderingAvailable) {
+      <div class="order-summary">
+        <div>
+          <span>Your selection</span>
+          <strong>{{ money(orderTotal) }}</strong>
+          <small>{{ totalSelected }} {{ totalSelected === 1 ? 'plate' : 'plates' }}</small>
+        </div>
+        <button class="primary-button" type="button" (click)="openCheckout()">Continue</button>
+      </div>
+    }
+  </section>
+
+  <section class="how-it-works">
+    <p class="eyebrow">Simple &amp; personal</p>
+    <div>
+      <article>
+        <b>01</b>
+        <h3>Choose your plates</h3>
+        <p>Pick from today’s freshly prepared menu.</p>
+      </article>
+      <article>
+        <b>02</b>
+        <h3>Reserve your slot</h3>
+        <p>Your plates are held once your order is confirmed.</p>
+      </article>
+      <article>
+        <b>03</b>
+        <h3>Pay &amp; enjoy</h3>
+        <p>Pay using your preferred UPI app and we’ll prepare with love.</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<dialog #checkoutDialog class="modal">
+  <form class="modal-card" (submit)="placeOrder($event)">
+    <button type="button" aria-label="Close" class="close-button" (click)="checkoutDialog.close()">
+      ×
+    </button>
+    <p class="eyebrow">Almost there</p>
+    <h2>Your details</h2>
+    <p class="muted">We’ll use these only to prepare and coordinate your order.</p>
+    <label
+      >Name<input
+        required
+        name="customer_name"
+        autocomplete="name"
+        maxlength="80"
+        placeholder="Your full name"
+    /></label>
+    <label
+      >Phone number<input
+        required
+        name="phone"
+        autocomplete="tel"
+        inputmode="numeric"
+        pattern="[0-9+ -]{8,20}"
+        placeholder="Your phone number"
+    /></label>
+    <label
+      >Delivery address <span>(optional)</span
+      ><textarea
+        name="delivery_address"
+        maxlength="500"
+        placeholder="House / building, area and landmark"
+      ></textarea>
+    </label>
+    @if (checkoutError) {
+      <div class="form-error" role="alert">{{ checkoutError }}</div>
+    }
+    <button class="primary-button wide" type="submit" [disabled]="placingOrder">
+      {{ placingOrder ? 'Reserving…' : 'Place order' }}
+    </button>
+    <p class="fine-print">
+      By placing this order, you reserve the selected plates. Payment is confirmed separately.
+    </p>
+  </form>
+</dialog>
+
+<dialog #confirmationDialog class="modal">
+  <div class="modal-card confirmation">
+    <div class="success-mark">✓</div>
+    <p class="eyebrow">Order reserved</p>
+    <h2>Thank you for ordering from The Plates!</h2>
+    <p>Your order has been placed successfully.</p>
+    <div class="order-code">Order ID: {{ confirmationCode }}</div>
+    <div class="receipt">
+      @for (item of confirmationItems; track item.id) {
+        <div class="receipt-row">
+          <span
+            >{{ item.quantity }} × {{ item.name }}<small>{{ money(item.price) }} each</small></span
+          >
+          <strong>{{ money((item.quantity ?? 0) * item.price) }}</strong>
+        </div>
+      }
+    </div>
+    <div class="receipt-total">
+      <span>Total amount to be paid</span><strong>{{ money(confirmationTotal) }}</strong>
+    </div>
+    <p class="payment-copy">{{ paymentInstructions() }}</p>
+    <button class="primary-button wide" type="button" (click)="confirmationDialog.close()">
+      Done
+    </button>
+  </div>
+</dialog>
+
+<dialog #adminDialog class="modal admin-modal">
+  <div class="modal-card admin-card">
+    <button type="button" aria-label="Close" class="close-button" (click)="adminDialog.close()">
+      ×
+    </button>
+    @if (adminPreview) {
+      <div>
+        <p class="eyebrow">Preview mode</p>
+        <h2>Admin preview</h2>
+        <p class="muted">
+          Add your Supabase project URL and public anon key in app.ts to enable sign-in and live
+          data.
+        </p>
+        <button class="primary-button wide" type="button" (click)="showAdminDashboard()">
+          Open preview
+        </button>
+      </div>
+    } @else if (!adminView) {
+      <div>
+        <p class="eyebrow">The Plates</p>
+        <h2>Admin sign in</h2>
+        <p class="muted">Access your menus, capacity and orders.</p>
+        <form (submit)="login($event)">
+          <label>Username<input required name="username" autocomplete="username" /></label>
+          <label
+            >Password<input
+              required
+              name="password"
+              type="password"
+              autocomplete="current-password"
+          /></label>
+          @if (loginError) {
+            <div class="form-error" role="alert">{{ loginError }}</div>
+          }
+          <button class="primary-button wide" type="submit" [disabled]="loginBusy">
+            {{ loginBusy ? 'Signing in…' : 'Sign in' }}
+          </button>
+        </form>
+      </div>
+    } @else {
+      <div class="admin-heading">
+        <div>
+          <p class="eyebrow">The Plates admin</p>
+          <h2>Kitchen dashboard</h2>
+        </div>
+        <button class="link-button" type="button" (click)="signOut()">Sign out</button>
+      </div>
+      <div class="admin-tabs">
+        <button
+          type="button"
+          [class.active]="adminTab === 'schedule'"
+          (click)="adminTab = 'schedule'"
+        >
+          Menus &amp; capacity
+        </button>
+        <button
+          type="button"
+          [class.active]="adminTab === 'orders'"
+          (click)="adminTab = 'orders'; loadOrders()"
+        >
+          Orders
+        </button>
+      </div>
+
+      @if (adminError) {
+        <div class="form-error" role="alert">{{ adminError }}</div>
+      }
+
+      @if (adminTab === 'schedule') {
+        <section class="admin-panel">
+          <div class="admin-toolbar">
+            <label
+              >Service date
+              <select
+                [(ngModel)]="adminDate"
+                name="adminDate"
+                (ngModelChange)="loadAdminDay($event)"
+              >
+                @for (date of serviceDateOptions; track date.value) {
+                  <option [value]="date.value">{{ date.label }}</option>
+                }
+              </select>
+            </label>
+            <button type="button" class="secondary-button" (click)="addServiceDate()">
+              Add date
+            </button>
+          </div>
+          @if (adminDay) {
+            <div class="capacity-card">
+              <div class="stat">
+                <strong>{{ adminDay.capacity }}</strong
+                ><span>Daily capacity</span>
+              </div>
+              <div class="stat">
+                <strong>{{ adminDay.booked_meals }}</strong
+                ><span>Plates booked</span>
+              </div>
+              <div class="stat">
+                <strong>{{ Math.max(0, adminDay.capacity - adminDay.booked_meals) }}</strong
+                ><span>Plates remaining</span>
+              </div>
+            </div>
+          }
+          <form class="inline-form" (submit)="$event.preventDefault(); saveCapacity()">
+            <label
+              >Daily capacity<input
+                type="number"
+                min="0"
+                required
+                name="capacity"
+                [(ngModel)]="capacityValue"
+            /></label>
+            <label class="check-label"
+              ><input type="checkbox" name="orderingOpen" [(ngModel)]="orderingOpen" /> Open
+              ordering</label
+            >
+            <button class="secondary-button" type="submit" [disabled]="savingCapacity">
+              {{ savingCapacity ? 'Saving…' : 'Save settings' }}
+            </button>
+          </form>
+          <div class="menu-admin-heading">
+            <div>
+              <h3>Menu for this date</h3>
+              <p>
+                Prices here apply only to new orders. Existing orders keep their original price.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="secondary-button"
+              [disabled]="adminItems.length > 0"
+              (click)="addMenuItem()"
+            >
+              {{ adminItems.length ? 'One dish per day' : 'Add today’s dish' }}
+            </button>
+          </div>
+          @for (item of adminItems; track item.id) {
+            <div class="admin-menu-item">
+              <label
+                >Name<input [(ngModel)]="item.name" [name]="'item-name-' + item.id" required
+              /></label>
+              <label
+                >Description<input
+                  [(ngModel)]="item.description"
+                  [name]="'item-description-' + item.id"
+              /></label>
+              <label
+                >Price<input
+                  [(ngModel)]="item.price"
+                  [name]="'item-price-' + item.id"
+                  type="number"
+                  min="1"
+                  required
+              /></label>
+              <label class="toggle"
+                ><input
+                  [(ngModel)]="item.enabled"
+                  [name]="'item-enabled-' + item.id"
+                  type="checkbox"
+                />
+                Enabled</label
+              >
+              <button
+                type="button"
+                class="secondary-button"
+                [disabled]="savingItemId === item.id"
+                (click)="saveMenuItem(item)"
+              >
+                {{ savingItemId === item.id ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
+          } @empty {
+            <div class="empty-state">No dish added for this date yet.</div>
+          }
+        </section>
+      } @else {
+        <section class="admin-panel">
+          <div class="filters">
+            <label
+              >Date
+              <select [(ngModel)]="ordersDate" name="ordersDate" (ngModelChange)="loadOrders()">
+                @for (date of serviceDateOptions; track date.value) {
+                  <option [value]="date.value">{{ date.label }}</option>
+                }
+              </select>
+            </label>
+            <label
+              >Payment
+              <select
+                [(ngModel)]="paymentFilter"
+                name="paymentFilter"
+                (ngModelChange)="loadOrders()"
+              >
+                <option value="">All payments</option>
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+              </select>
+            </label>
+            <button type="button" class="secondary-button" (click)="exportCsv()">Export CSV</button>
+          </div>
+          <div class="orders-list">
+            @for (order of orders; track order.id) {
+              <article class="order-admin">
+                <div class="order-admin-top">
+                  <div>
+                    <h3>{{ order.order_code }} · {{ order.customer_name }}</h3>
+                    <p>
+                      {{ order.phone
+                      }}{{ order.delivery_address ? ' · ' + order.delivery_address : '' }}
+                    </p>
+                  </div>
+                  <strong>{{ money(order.total_amount) }}</strong>
+                </div>
+                <p>
+                  @for (item of order.order_items; track item.id ?? item.item_name) {
+                    <span
+                      >{{ item.quantity }} × {{ item.item_name }} ({{ money(item.unit_price) }})
+                    </span>
+                  }
+                </p>
+                <div class="order-meta">
+                  <span
+                    class="tag"
+                    [class.paid]="order.payment_status === 'paid'"
+                    [class.pending]="order.payment_status === 'pending'"
+                    >{{ order.payment_status }}</span
+                  >
+                  <span class="tag">{{ order.order_status }}</span>
+                  <span class="tag">{{ order.total_quantity }} plates</span>
+                  <span class="tag">{{ order.created_at | date: 'short' }}</span>
+                </div>
+                <div class="order-actions">
+                  <label
+                    >Payment
+                    <select [value]="order.payment_status" (change)="updatePayment(order, $event)">
+                      <option value="pending">Pending</option>
+                      <option value="paid">Paid</option>
+                    </select>
+                  </label>
+                  @if (order.order_status !== 'cancelled') {
+                    <button type="button" class="link-button" (click)="cancelOrder(order)">
+                      Cancel &amp; release plates
+                    </button>
+                  }
+                </div>
+              </article>
+            } @empty {
+              <div class="empty-state">No orders for this date yet.</div>
+            }
+          </div>
+        </section>
+      }
+    }
+  </div>
+</dialog>

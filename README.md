@@ -1,65 +1,28 @@
-<<<<<<< HEAD
-# ThePlates
+# The Plates
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.6.
+Mobile-first meal-ordering website for Tuesday–Thursday service dates. The Angular app includes a preview mode and a Supabase-backed admin dashboard for menus, capacity, and orders.
 
-## Development server
-
-To start a local development server, run:
+## Run locally
 
 ```bash
-ng serve
+npm install
+npm start
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Open `http://localhost:4200/`. The Supabase project URL and publishable key are already configured in the app.
 
-## Code scaffolding
+## Connect Supabase
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+1. Run [`supabase_setup.sql`](./supabase_setup.sql) in the Supabase SQL Editor.
+2. Create one admin user in **Authentication → Users**, using a strong, unique password. Add that user to `kitchen_admins` using the final SQL statement in the setup file.
+3. In [`src/app/app.ts`](./src/app/app.ts), set `ADMIN_AUTH_EMAIL` to the admin user's email.
+4. Run `npm start` and test the site before deploying.
+
+Only use the public anon/publishable key in browser code. Never put a Supabase `service_role` key in this app.
+
+## Build and test
 
 ```bash
-ng generate component component-name
+npm run build
+npm test -- --watch=false
 ```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
-=======
-# the-plates
-website for booking lunch
->>>>>>> c797c90051e8a9fe99e69ffedb6795328ce1b9ca
-# the-plates
