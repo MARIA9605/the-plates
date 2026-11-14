@@ -5,11 +5,55 @@
 
 <main id="top">
   <section class="hero">
-    <p class="eyebrow">Kakkanad home kitchen</p>
-    <h1>Comfort food,<br /><em>made for today.</em></h1>
-    <p class="hero-copy">Freshly prepared plates, made in small batches and delivered with care.</p>
+    <p class="eyebrow">Home-cooked meals, shared with you</p>
+    <h1>What I’m eating today,<br /><em>you can enjoy too.</em></h1>
+    <p class="hero-copy">
+      The Plates is my cooking hobby. I’m a techie who is still learning to cook and sharing fresh,
+      homemade extra plates, made with care and my food maynot have a restaurant taste but I will
+      try my best to make it as good as possible. I cook for myself and my family, and I have a few
+      extra plates to share with you. I hope you enjoy them!
+    </p>
     <div class="service-note">
       Serving Tuesday, Wednesday &amp; Thursday · menus open every Monday
+    </div>
+  </section>
+
+  <section class="weekly-menu" aria-labelledby="weekly-menu-title">
+    <div class="weekly-menu-heading">
+      <p class="eyebrow">Plan ahead</p>
+      <h2 id="weekly-menu-title">Weekly menu</h2>
+      <p class="muted">Choose Tuesday, Wednesday, or Thursday to view its menu and order.</p>
+    </div>
+    <div class="weekly-menu-grid">
+      @if (loadingMenu) {
+        <div class="empty-state">Loading the weekly menu…</div>
+      } @else {
+        @for (day of weeklyMenu; track day.service_date) {
+          <button
+            type="button"
+            class="weekly-menu-card"
+            [class.selected]="customerDate === day.service_date"
+            [attr.aria-pressed]="customerDate === day.service_date"
+            (click)="selectServiceDay(day.service_date)"
+          >
+            <span class="weekly-menu-date">{{ day.label }}</span>
+            <span class="weekly-menu-status">{{ serviceDayStatus(day) }}</span>
+            @if (day.items.length > 0) {
+              @for (item of day.items; track item.id) {
+                <span class="weekly-dish-name">{{ item.name }}</span>
+                <span class="weekly-dish-description">{{
+                  item.description || 'Fresh from our kitchen'
+                }}</span>
+                <strong class="weekly-dish-price">{{ money(item.price) }}</strong>
+              }
+            } @else {
+              <span class="weekly-dish-description">Menu not published yet.</span>
+            }
+          </button>
+        } @empty {
+          <div class="empty-state">The weekly menu is not available yet.</div>
+        }
+      }
     </div>
   </section>
 
@@ -17,12 +61,16 @@
     <div class="order-topline">
       <div>
         <p class="eyebrow">{{ loadingMenu ? 'Loading menu' : currentMenuDateLabel }}</p>
-        <h2 id="menu-title">Today’s plates</h2>
+        <h2 id="menu-title">
+          {{ customerDate ? 'Plates for your selected day' : 'Choose a service day' }}
+        </h2>
       </div>
       <div
         class="availability"
         [class.loading]="loadingMenu"
-        [class.sold]="!loadingMenu && (!customerDay?.ordering_open || remaining === 0)"
+        [class.sold]="
+          !loadingMenu && !!customerDate && (!customerDay?.ordering_open || remaining === 0)
+        "
       >
         {{ loadingMenu ? 'Checking availability…' : availabilityText }}
       </div>
@@ -37,6 +85,8 @@
     <div class="menu-list">
       @if (loadingMenu) {
         <div class="empty-state">Loading today’s menu…</div>
+      } @else if (!customerDate) {
+        <div class="empty-state">Choose a service date above to see the menu and order.</div>
       } @else if (menuItems.length === 0) {
         <div class="empty-state">No menu has been published for this date yet.</div>
       } @else {
@@ -82,6 +132,41 @@
         <button class="primary-button" type="button" (click)="openCheckout()">Continue</button>
       </div>
     }
+  </section>
+
+  <section class="manage-order" aria-labelledby="manage-order-title">
+    <p class="eyebrow">Manage your order</p>
+    <h2 id="manage-order-title">Need to cancel?</h2>
+    <p class="muted">
+      Enter your order ID and the phone number used when ordering. Cancellations are available until
+      9:00 PM IST on the day before service.
+    </p>
+    <form class="cancel-order-form" (submit)="requestCancellation($event)">
+      <label
+        >Order ID<input
+          required
+          name="order_code"
+          [(ngModel)]="cancelOrderCode"
+          placeholder="For example, TP-261117-ABC123"
+      /></label>
+      <label
+        >Phone number<input
+          required
+          name="phone"
+          autocomplete="tel"
+          inputmode="tel"
+          [(ngModel)]="cancelPhone"
+          placeholder="The phone number used for the order"
+      /></label>
+      @if (cancellationMessage) {
+        <div class="notice" [class.sold-out]="cancellationError" role="status">
+          {{ cancellationMessage }}
+        </div>
+      }
+      <button class="secondary-button" type="submit" [disabled]="cancellingOrder">
+        {{ cancellingOrder ? 'Checking order…' : 'Cancel order' }}
+      </button>
+    </form>
   </section>
 
   <section class="how-it-works">
@@ -158,6 +243,11 @@
     <h2>Thank you for ordering from The Plates!</h2>
     <p>Your order has been placed successfully.</p>
     <div class="order-code">Order ID: {{ confirmationCode }}</div>
+    <p class="fine-print">
+      To cancel, use this order ID and the same phone number in the “Manage your order” form.
+      Cancellation closes at 9:00 PM IST the day before service.
+    </p>
+    <p class="eyebrow">Order details</p>
     <div class="receipt">
       @for (item of confirmationItems; track item.id) {
         <div class="receipt-row">
@@ -171,7 +261,27 @@
     <div class="receipt-total">
       <span>Total amount to be paid</span><strong>{{ money(confirmationTotal) }}</strong>
     </div>
-    <p class="payment-copy">{{ paymentInstructions() }}</p>
+    <p class="payment-copy">
+      Please complete your payment of {{ money(confirmationTotal) }} to
+      <strong class="payment-phone">{{ paymentPhone }}</strong> via Google Pay or any other UPI app.
+      Please use your Order ID as the payment note.
+      <button
+        class="copy-phone-button"
+        type="button"
+        aria-label="Copy payment phone number"
+        (click)="copyPaymentPhone()"
+      >
+        Copy number
+      </button>
+    </p>
+    @if (copyPaymentPhoneMessage) {
+      <p class="copy-phone-status" role="status">{{ copyPaymentPhoneMessage }}</p>
+    }
+    <p class="feedback-copy">
+      I’m still learning and improving in the kitchen, so if you have any feedback after your meal,
+      please feel free to share it with me. Your feedback will help me make The Plates better.
+    </p>
+    <p>Thank you for supporting my little cooking hobby!</p>
     <button class="primary-button wide" type="button" (click)="confirmationDialog.close()">
       Done
     </button>

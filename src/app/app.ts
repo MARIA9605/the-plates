@@ -57,6 +57,23 @@ interface Order {
   order_items: OrderItem[];
 }
 
+interface WeeklyMenuDay {
+  service_date: string;
+  label: string;
+  day: ServiceDay | null;
+  items: MenuItem[];
+}
+
+export function serviceDayDeadline(serviceDate: string): Date {
+  const dayBefore = new Date(`${serviceDate}T00:00:00.000Z`);
+  dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+  return new Date(`${dayBefore.toISOString().slice(0, 10)}T21:00:00+05:30`);
+}
+
+export function canOrderForServiceDay(serviceDate: string, now = new Date()): boolean {
+  return now.getTime() < serviceDayDeadline(serviceDate).getTime();
+}
+
 @Component({
   imports: [DatePipe, FormsModule],
   selector: 'app-root',
@@ -69,7 +86,9 @@ export class App implements OnInit {
 
   readonly demo = DEMO;
   readonly Math = Math;
+  readonly paymentPhone = '9207285657';
   readonly serviceDateOptions = this.getServiceDates();
+  readonly weekServiceDates = this.getMenuWeekDates();
   readonly money = (amount: number) =>
     new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -79,6 +98,7 @@ export class App implements OnInit {
 
   customerDate = '';
   customerDay: ServiceDay | null = null;
+  weeklyMenu: WeeklyMenuDay[] = [];
   menuItems: MenuItem[] = [];
   quantities: Record<string, number> = {};
   loadingMenu = true;
@@ -88,6 +108,12 @@ export class App implements OnInit {
   confirmationCode = '';
   confirmationItems: MenuItem[] = [];
   confirmationTotal = 0;
+  copyPaymentPhoneMessage = '';
+  cancelOrderCode = '';
+  cancelPhone = '';
+  cancellationMessage = '';
+  cancellationError = false;
+  cancellingOrder = false;
 
   adminView = false;
   adminPreview = false;
@@ -135,59 +161,115 @@ export class App implements OnInit {
 
   get orderingAvailable(): boolean {
     return Boolean(
-      this.customerDay?.ordering_open && this.menuItems.length > 0 && this.remaining > 0,
+      this.customerDay?.ordering_open &&
+      this.menuItems.length > 0 &&
+      this.remaining > 0 &&
+      canOrderForServiceDay(this.customerDate),
     );
   }
 
   get availabilityText(): string {
+    if (!this.customerDate) return 'No day selected';
     if (!this.customerDay) return 'Not yet open';
     if (!this.customerDay.ordering_open) return 'Ordering closed';
     if (this.menuItems.length === 0) return 'Menu not published';
+    if (!canOrderForServiceDay(this.customerDate)) return 'Orders closed';
     return this.remaining === 1 ? '1 plate available' : `${this.remaining} plates available`;
   }
 
   get currentMenuDateLabel(): string {
-    return this.customerDate ? this.prettyDate(this.customerDate) : 'Loading menu';
+    return this.customerDate ? this.prettyDate(this.customerDate) : 'Choose a service date';
   }
 
   get closedMessage(): string {
+    if (!canOrderForServiceDay(this.customerDate)) {
+      return `Ordering closed at 9:00 PM on ${this.prettyDate(this.dayBefore(this.customerDate))}.`;
+    }
     if (this.remaining === 0) {
       return "Looks like today's plates are all taken! ❤️\n\nWe've reached our daily limit for today. Thank you for the wonderful response and for supporting The Plates.\n\nWe'd love to serve you again tomorrow!";
     }
     return 'Ordering is not open for this service date yet. Please check back when the menu is published.';
   }
 
+  serviceDayStatus(entry: WeeklyMenuDay): string {
+    if (!entry.day || entry.items.length === 0) return 'Menu not published';
+    if (!entry.day.ordering_open) return 'Not yet open';
+    if (!canOrderForServiceDay(entry.service_date)) return 'Orders closed';
+    if (entry.day.capacity <= entry.day.booked_meals) return 'Sold out';
+    return 'Available to order';
+  }
+
+  selectServiceDay(date: string): void {
+    const entry = this.weeklyMenu.find((item) => item.service_date === date);
+    if (!entry) return;
+    this.customerDate = entry.service_date;
+    this.customerDay = entry.day;
+    this.menuItems = entry.items;
+    this.quantities = {};
+    this.menuError = '';
+    this.changeDetector.markForCheck();
+  }
+
   async loadCustomer(date?: string): Promise<void> {
-    const selectedDate = date ?? (this.customerDate || this.serviceDateOptions[0].value);
-    this.customerDate = selectedDate;
+    const weekDates = this.weekServiceDates.map((item) => item.value);
+    const preferredDate = date ?? this.customerDate;
+    this.customerDate = preferredDate;
     this.loadingMenu = true;
     this.menuError = '';
     try {
       if (DEMO) {
-        this.customerDay = this.demoDay(selectedDate);
-        this.menuItems = this.demoItems(selectedDate);
+        this.weeklyMenu = this.weekServiceDates.map((item) => ({
+          service_date: item.value,
+          label: item.label,
+          day: this.demoDay(item.value),
+          items: this.demoItems(item.value),
+        }));
       } else {
         const client = await getSupabaseClient();
-        const [dayResult, menuResult] = await Promise.all([
-          client.from('service_days').select('*').eq('service_date', selectedDate).maybeSingle(),
+        const [daysResult, menuResult] = await Promise.all([
+          client
+            .from('service_days')
+            .select('*')
+            .in('service_date', weekDates)
+            .order('service_date'),
           client
             .from('menu_items')
             .select('*')
-            .eq('service_date', selectedDate)
+            .in('service_date', weekDates)
             .eq('enabled', true)
             .order('created_at'),
         ]);
-        if (dayResult.error) throw dayResult.error;
+        if (daysResult.error) throw daysResult.error;
         if (menuResult.error) throw menuResult.error;
-        this.customerDay = dayResult.data;
-        this.menuItems = menuResult.data ?? [];
+        const daysByDate = new Map(
+          (daysResult.data ?? []).map((day) => [day.service_date, day as ServiceDay]),
+        );
+        const itemsByDate = new Map<string, MenuItem[]>();
+        for (const item of menuResult.data ?? []) {
+          const dateItems = itemsByDate.get(item.service_date) ?? [];
+          dateItems.push(item);
+          itemsByDate.set(item.service_date, dateItems);
+        }
+        this.weeklyMenu = this.weekServiceDates.map((item) => ({
+          service_date: item.value,
+          label: item.label,
+          day: daysByDate.get(item.value) ?? null,
+          items: itemsByDate.get(item.value) ?? [],
+        }));
       }
+      const selected = preferredDate
+        ? this.weeklyMenu.find((item) => item.service_date === preferredDate)
+        : undefined;
+      this.customerDate = selected?.service_date ?? '';
+      this.customerDay = selected?.day ?? null;
+      this.menuItems = selected?.items ?? [];
       this.quantities = {};
     } catch (error) {
       console.error(error);
       this.menuError = 'We couldn’t load the menu just now. Please try again shortly.';
       this.customerDay = null;
       this.menuItems = [];
+      this.weeklyMenu = [];
     } finally {
       this.loadingMenu = false;
       this.changeDetector.markForCheck();
@@ -278,8 +360,49 @@ export class App implements OnInit {
     }
   }
 
-  paymentInstructions(): string {
-    return `Please complete your payment of ${this.money(this.confirmationTotal)} to 9207285657 via Google Pay or any other UPI app. Please use ${this.confirmationCode} as the payment note.`;
+  async requestCancellation(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    this.cancellationMessage = '';
+    this.cancellationError = false;
+    this.cancellingOrder = true;
+    try {
+      const client = await getSupabaseClient();
+      const { data, error } = await client.rpc('cancel_customer_order', {
+        p_order_code: this.cancelOrderCode.trim(),
+        p_phone: this.cancelPhone.trim(),
+      });
+      if (error) throw error;
+      const response = data as { message?: unknown } | null;
+      this.cancellationMessage =
+        typeof response?.message === 'string'
+          ? response.message
+          : 'Your order has been cancelled and the plates released.';
+      await this.loadCustomer(this.customerDate);
+    } catch (error) {
+      console.error(error);
+      this.cancellationError = true;
+      this.cancellationMessage =
+        error instanceof Error ? error.message : 'Could not cancel this order. Please try again.';
+    } finally {
+      this.cancellingOrder = false;
+      this.changeDetector.markForCheck();
+    }
+  }
+
+  async copyPaymentPhone(): Promise<void> {
+    this.copyPaymentPhoneMessage = '';
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard access is not available in this browser.');
+      }
+      await navigator.clipboard.writeText(this.paymentPhone);
+      this.copyPaymentPhoneMessage = 'Payment number copied.';
+    } catch (error) {
+      console.error(error);
+      this.copyPaymentPhoneMessage = 'Could not copy the number. Please copy it manually.';
+    } finally {
+      this.changeDetector.markForCheck();
+    }
   }
 
   async openAdmin(): Promise<void> {
@@ -621,12 +744,12 @@ export class App implements OnInit {
     const date = window.prompt('Service date (YYYY-MM-DD). Tuesday, Wednesday or Thursday only:');
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     const [year, month, day] = date.split('-').map(Number);
-    const parsed = new Date(year, month - 1, day, 12);
+    const parsed = new Date(Date.UTC(year, month - 1, day, 12));
     if (
-      parsed.getFullYear() !== year ||
-      parsed.getMonth() !== month - 1 ||
-      parsed.getDate() !== day ||
-      ![2, 3, 4].includes(parsed.getDay())
+      parsed.getUTCFullYear() !== year ||
+      parsed.getUTCMonth() !== month - 1 ||
+      parsed.getUTCDate() !== day ||
+      ![2, 3, 4].includes(parsed.getUTCDay())
     ) {
       this.adminError = 'Choose a valid Tuesday, Wednesday, or Thursday.';
       return;
@@ -641,20 +764,43 @@ export class App implements OnInit {
 
   private getServiceDates(count = 9): { value: string; label: string }[] {
     const dates: Date[] = [];
-    const date = new Date();
-    date.setHours(12, 0, 0, 0);
+    const today = this.todayInIndia();
+    const date = new Date(today);
     while (dates.length < count) {
-      if ([2, 3, 4].includes(date.getDay())) dates.push(new Date(date));
-      date.setDate(date.getDate() + 1);
+      if ([2, 3, 4].includes(date.getUTCDay())) dates.push(new Date(date));
+      date.setUTCDate(date.getUTCDate() + 1);
     }
     return dates.map((item) => {
-      const value = this.localDate(item);
+      const value = item.toISOString().slice(0, 10);
       return { value, label: this.prettyDate(value) };
     });
   }
 
-  private localDate(date: Date): string {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(date);
+  private getMenuWeekDates(): { value: string; label: string }[] {
+    const today = this.todayInIndia();
+    const weekday = today.getUTCDay();
+    const monday = new Date(today);
+    monday.setUTCDate(monday.getUTCDate() - ((weekday + 6) % 7));
+    const tuesday = new Date(monday);
+    tuesday.setUTCDate(tuesday.getUTCDate() + 1);
+    if ([0, 5, 6].includes(weekday)) tuesday.setUTCDate(tuesday.getUTCDate() + 7);
+    return [0, 1, 2].map((offset) => {
+      const date = new Date(tuesday);
+      date.setUTCDate(date.getUTCDate() + offset);
+      const value = date.toISOString().slice(0, 10);
+      return { value, label: this.prettyDate(value) };
+    });
+  }
+
+  private todayInIndia(): Date {
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    return new Date(`${date}T00:00:00.000Z`);
+  }
+
+  private dayBefore(serviceDate: string): string {
+    const date = new Date(`${serviceDate}T00:00:00.000Z`);
+    date.setUTCDate(date.getUTCDate() - 1);
+    return date.toISOString().slice(0, 10);
   }
 
   private prettyDate(date: string): string {

@@ -30,7 +30,7 @@ app-root {
   text-underline-offset: 4px;
 }
 .hero {
-  padding: 78px clamp(22px, 12vw, 190px) 124px;
+  padding: 78px clamp(22px, 12vw, 190px) 72px;
   background: linear-gradient(115deg, #fbe5b7 0%, #f9d9a2 45%, #e7efdf 100%);
 }
 .eyebrow {
@@ -57,10 +57,10 @@ h3 {
   color: var(--orange);
 }
 .hero-copy {
-  font-size: 18px;
-  line-height: 1.55;
-  max-width: 440px;
-  margin: 25px 0;
+  font-size: 16px;
+  line-height: 1.5;
+  max-width: 640px;
+  margin: 20px 0;
 }
 .service-note {
   display: inline-block;
@@ -70,9 +70,73 @@ h3 {
   font-size: 13px;
   font-weight: 600;
 }
+.weekly-menu {
+  max-width: 1040px;
+  margin: 44px auto 0;
+  padding: 0 26px;
+}
+.weekly-menu-heading {
+  margin-bottom: 16px;
+}
+.weekly-menu-heading h2,
+.manage-order h2 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
+.weekly-menu-heading p {
+  margin: 0;
+}
+.weekly-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.weekly-menu-card {
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+.weekly-menu-card.selected {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 2px #e4603233;
+}
+.weekly-menu-card:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+.weekly-menu-date {
+  font-weight: 700;
+}
+.weekly-menu-status {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.weekly-dish-name {
+  font:
+    700 20px 'Playfair Display',
+    serif;
+}
+.weekly-dish-description {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.weekly-dish-price {
+  margin-top: auto;
+  color: var(--orange);
+}
 .order-shell {
   max-width: 870px;
-  margin: -58px auto 90px;
+  margin: 22px auto 90px;
   background: var(--paper);
   border: 1px solid var(--line);
   box-shadow: 0 18px 55px #5844291c;
@@ -369,6 +433,56 @@ textarea {
   line-height: 1.55;
   font-size: 14px;
 }
+.payment-phone {
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.copy-phone-button {
+  margin-left: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.copy-phone-status,
+.feedback-copy {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.copy-phone-status {
+  margin: 4px 0 0;
+}
+.feedback-copy {
+  margin: 12px 0;
+}
+.manage-order {
+  max-width: 870px;
+  margin: 0 auto 70px;
+  padding: 0 clamp(20px, 4vw, 42px);
+}
+.cancel-order-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: 14px;
+}
+.cancel-order-form label {
+  margin: 0;
+}
+.cancel-order-form .notice {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.cancel-order-form .secondary-button {
+  margin-bottom: 1px;
+}
 .admin-modal {
   max-width: min(96vw, 920px);
 }
@@ -543,15 +657,29 @@ textarea {
 @media (max-width: 620px) {
   .hero {
     padding-top: 58px;
-    padding-bottom: 105px;
+    padding-bottom: 64px;
+  }
+  .weekly-menu {
+    margin-top: 30px;
+    padding: 0 14px;
+  }
+  .weekly-menu-grid {
+    grid-template-columns: 1fr;
   }
   .order-shell {
-    margin: -42px 14px 64px;
+    margin: 18px 14px 64px;
   }
   .order-topline h2 {
     font-size: 28px;
   }
   .how-it-works > div {
+    grid-template-columns: 1fr;
+  }
+  .manage-order {
+    margin: 0 14px 64px;
+    padding: 0 6px;
+  }
+  .cancel-order-form {
     grid-template-columns: 1fr;
   }
   .modal-card {
