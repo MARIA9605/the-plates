@@ -56,4 +56,16 @@ describe('App', () => {
 
     expect(app.orderTotal).toBe(140);
   });
+
+  it('should provide a description field when adding a dish', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    app.adminView = true;
+    fixture.detectChanges();
+
+    const form = fixture.nativeElement.querySelector('.new-menu-item') as HTMLFormElement;
+    expect(form.querySelector('input[name="name"]')).not.toBeNull();
+    expect(form.querySelector('textarea[name="description"]')).not.toBeNull();
+    expect(form.querySelector('input[name="price"]')).not.toBeNull();
+  });
 });

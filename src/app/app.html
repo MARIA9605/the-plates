@@ -304,52 +304,76 @@
                 Prices here apply only to new orders. Existing orders keep their original price.
               </p>
             </div>
-            <button
-              type="button"
-              class="secondary-button"
-              [disabled]="adminItems.length > 0"
-              (click)="addMenuItem()"
-            >
-              {{ adminItems.length ? 'One dish per day' : 'Add today’s dish' }}
-            </button>
           </div>
-          @for (item of adminItems; track item.id) {
-            <div class="admin-menu-item">
+          @if (adminItems.length === 0) {
+            <form class="admin-menu-item new-menu-item" (submit)="addMenuItem($event)">
               <label
-                >Name<input [(ngModel)]="item.name" [name]="'item-name-' + item.id" required
-              /></label>
-              <label
-                >Description<input
-                  [(ngModel)]="item.description"
-                  [name]="'item-description-' + item.id"
-              /></label>
-              <label
-                >Price<input
-                  [(ngModel)]="item.price"
-                  [name]="'item-price-' + item.id"
-                  type="number"
-                  min="1"
+                >Dish name<input
+                  name="name"
+                  maxlength="100"
+                  placeholder="For example, Chicken Biriyani"
                   required
               /></label>
-              <label class="toggle"
-                ><input
-                  [(ngModel)]="item.enabled"
-                  [name]="'item-enabled-' + item.id"
-                  type="checkbox"
-                />
-                Enabled</label
-              >
-              <button
-                type="button"
-                class="secondary-button"
-                [disabled]="savingItemId === item.id"
-                (click)="saveMenuItem(item)"
-              >
-                {{ savingItemId === item.id ? 'Saving…' : 'Save' }}
+              <label
+                >Description<textarea
+                  name="description"
+                  maxlength="300"
+                  placeholder="Describe the dish, ingredients, or what makes it special"
+                  rows="2"
+                ></textarea>
+              </label>
+              <label
+                >Price (₹)<input name="price" type="number" min="1" step="0.01" required
+              /></label>
+              <button class="secondary-button" type="submit" [disabled]="savingItemId === 'new'">
+                {{ savingItemId === 'new' ? 'Adding…' : 'Add dish' }}
               </button>
-            </div>
-          } @empty {
-            <div class="empty-state">No dish added for this date yet.</div>
+            </form>
+          } @else {
+            @for (item of adminItems; track item.id) {
+              <div class="admin-menu-item">
+                <label
+                  >Dish name<input
+                    [(ngModel)]="item.name"
+                    [name]="'item-name-' + item.id"
+                    maxlength="100"
+                    required
+                /></label>
+                <label
+                  >Description<textarea
+                    [(ngModel)]="item.description"
+                    [name]="'item-description-' + item.id"
+                    maxlength="300"
+                    rows="2"
+                  ></textarea>
+                </label>
+                <label
+                  >Price (₹)<input
+                    [(ngModel)]="item.price"
+                    [name]="'item-price-' + item.id"
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    required
+                /></label>
+                <label class="toggle"
+                  ><input
+                    [(ngModel)]="item.enabled"
+                    [name]="'item-enabled-' + item.id"
+                    type="checkbox"
+                  />
+                  Enabled</label
+                >
+                <button
+                  type="button"
+                  class="secondary-button"
+                  [disabled]="savingItemId === item.id"
+                  (click)="saveMenuItem(item)"
+                >
+                  {{ savingItemId === item.id ? 'Saving…' : 'Save' }}
+                </button>
+              </div>
+            }
           }
         </section>
       } @else {

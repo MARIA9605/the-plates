@@ -402,29 +402,58 @@ export class App implements OnInit {
     }
   }
 
-  async addMenuItem(): Promise<void> {
+  async addMenuItem(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
     if (this.adminItems.length > 0) return;
+    const form = event.currentTarget as HTMLFormElement;
+    const values = new FormData(form);
+    const name = String(values.get('name') ?? '').trim();
+    const description = String(values.get('description') ?? '').trim();
+    const price = Number(values.get('price'));
+    if (!name || !Number.isFinite(price) || price < 1) {
+      this.adminError = 'Enter a dish name and a valid price.';
+      this.changeDetector.markForCheck();
+      return;
+    }
+
     const item = {
       service_date: this.adminDate,
-      name: "Today's dish",
-      description: 'Add a short description',
-      price: 100,
+      name,
+      description,
+      price,
       enabled: true,
     };
+    this.savingItemId = 'new';
+    this.adminError = '';
     try {
       if (DEMO) {
         this.adminItems = [{ ...item, id: `demo-${Date.now()}` }];
       } else {
         const client = await getSupabaseClient();
+        const dayValues = {
+          service_date: this.adminDate,
+          capacity: this.adminDay?.capacity ?? this.capacityValue,
+          ordering_open: this.adminDay?.ordering_open ?? this.orderingOpen,
+        };
+        const { error: dayError } = await client.from('service_days').upsert(dayValues);
+        if (dayError) throw dayError;
         const { data, error } = await client.from('menu_items').insert(item).select().single();
         if (error) throw error;
         this.adminItems = [data];
+        this.adminDay = {
+          ...this.adminDay,
+          ...dayValues,
+          booked_meals: this.adminDay?.booked_meals ?? 0,
+        };
       }
+      form.reset();
     } catch (error) {
       console.error(error);
       this.adminError = error instanceof Error ? error.message : 'Could not add the menu item.';
+    } finally {
+      this.savingItemId = '';
+      this.changeDetector.markForCheck();
     }
-    this.changeDetector.markForCheck();
   }
 
   async saveMenuItem(item: MenuItem): Promise<void> {
